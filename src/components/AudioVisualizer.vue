@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import init, { calculate_fft } from "../rust_wasm/pkg/audio_fft.js";
+import init, {
+	calculate_fft,
+	prepare_fft_data,
+} from "../rust_wasm/pkg/audio_fft.js";
 
 const audioContext = ref<AudioContext | null>(null);
 const analyser = ref<AnalyserNode | null>(null);
@@ -9,13 +12,14 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const ctx = ref<CanvasRenderingContext2D | null>(null);
 const audioElement = ref<HTMLAudioElement | null>(null);
 const sourceNode = ref<MediaElementAudioSourceNode | null>(null);
-const scaleFactor = 0.2;
+let scaleFactor: number = 0.001;
+let maxFrequency: number = 2000;
 
 onMounted(async () => {
 	await init();
 	audioContext.value = new (window.AudioContext || window.webkitAudioContext)();
 	analyser.value = audioContext.value.createAnalyser();
-	analyser.value.fftSize = 2048;
+	analyser.value.fftSize = 16384;
 	const bufferLength = analyser.value.frequencyBinCount;
 	dataArray.value = new Float32Array(bufferLength);
 
@@ -28,6 +32,8 @@ onMounted(async () => {
 	);
 	sourceNode.value.connect(analyser.value);
 	analyser.value.connect(audioContext.value.destination);
+
+	console.log(`Sample Rate: ${audioContext.value.sampleRate} Hz`);
 
 	audioElement.value.addEventListener("canplay", () => {
 		audioElement.value?.play();
@@ -61,50 +67,57 @@ const draw = () => {
 
 	analyser.value.getFloatFrequencyData(dataArray.value);
 
-	const fftResult = calculate_fft(dataArray.value).map((v) => (v + 140) / 140);
+	const fftResult = calculate_fft(dataArray.value);
+	const preparedData = prepare_fft_data(
+		fftResult,
+		audioContext.value!.sampleRate,
+		analyser.value!.fftSize,
+		maxFrequency,
+		canvas.value.height,
+		scaleFactor,
+	);
 
 	ctx.value.fillStyle = "rgb(0, 0, 0)";
 	ctx.value.fillRect(0, 0, canvas.value.width, canvas.value.height);
 
-	const barWidth = (canvas.value.width / dataArray.value.length) * 2.5;
-	let barHeight;
+	const binWidth = audioContext.value!.sampleRate / analyser.value!.fftSize;
+	const maxIndex = Math.floor(maxFrequency / binWidth);
+
+	const barWidth = (canvas.value.width / maxIndex) * 2.5;
 	let x = 0;
+	
 
-	for (let i = 0; i < dataArray.value.length; i++) {
-		barHeight = fftResult[i] * canvas.value.height * scaleFactor;
-
-		const r = clamp(barHeight, 0, 255);
-		const g = 50;
-		const b = 50;
-		ctx.value.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
-
-		ctx.value.fillRect(
-			x,
-			canvas.value.height - barHeight / 2,
-			barWidth,
-			barHeight / 2,
-		);
-
+	for (let i = 1; i < maxIndex; i++) {
+		const barHeight = preparedData[i];
+		ctx.value.fillStyle = `rgb(${barHeight},50,50)`;
+		ctx.value.fillRect(x, canvas.value.height - barHeight, barWidth, barHeight);
 		x += barWidth + 1;
 	}
-};
-
-const clamp = (value: number, min: number, max: number) => {
-	return Math.min(Math.max(value, min), max);
 };
 </script>
 
 <template>
-    <div>
-      <canvas id="canvas" width="800" height="400"></canvas>
-      <input type="file" id="upload" @change="handleFileUpload" />
-      <audio id="audio" controls></audio>
-    </div>
+  <div class="spectolarea">
+    <input class="spectolarea-elem" type="file" id="upload" @change="handleFileUpload" />
+    <audio class="spectolarea-elem" id="audio" controls></audio>
+    <canvas class="spectolarea-elem" id="canvas" width="1200" height="600"></canvas>
+  </div>
 </template>
-  
+
 <style scoped>
-canvas {
-    border: 1px solid black;
+.spectolarea-elem {
+  margin: auto;
+}
+.spectolarea {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  justify-content: space-between;
+  height: 800px;
+  width: 100%;
+  background-color: #222222;
+}
+audio {
+  width: 800px;
 }
 </style>
-  

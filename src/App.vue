@@ -3,10 +3,7 @@ import AudioVisualizer from './components/AudioVisualizer.vue';
 </script>
 
 <template>
-  <div>
-    <h1>リアルタイムオーディオスペクトル</h1>
     <AudioVisualizer />
-  </div>
 </template>
 
 <style>
