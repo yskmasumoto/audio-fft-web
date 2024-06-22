@@ -1,12 +1,15 @@
 use rustfft::FftPlanner;
 use rustfft::num_complex::Complex;
+use rustfft::Fft;
+use rustfft::algorithm::BluesteinsAlgorithm;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn calculate_fft(audio_data: &[f32]) -> Vec<f32> {
     // FFTの準備
     let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(audio_data.len());
+    let inner_fft = planner.plan_fft_forward(audio_data.len() * 2);
+    let fft = BluesteinsAlgorithm::new(audio_data.len(), inner_fft);
 
     // 入力データを複素数の配列に変換
     let mut buffer: Vec<Complex<f32>> = audio_data.iter().map(|&x| Complex::new(x, 0.0)).collect();
@@ -37,4 +40,29 @@ pub fn prepare_fft_data(
             normalized * canvas_height * scale_factor
         })
         .collect()
+}
+
+// 単位をデシベルにしてから返すように修正
+pub fn calculate_fft_v2(samples: &[f32]) -> Vec<f32> {
+    // サンプル数
+    let n = samples.len();
+
+    // フーリエ変換のためのバッファを準備
+    let mut input: Vec<Complex<f32>> = samples.iter().map(|&s| Complex::new(s, 0.0)).collect();
+    let mut output: Vec<Complex<f32>> = vec![Complex::zero(); n];
+
+    // FFTを計算
+    let mut planner = FFTplanner::new(false);
+    let fft = planner.plan_fft(n);
+    fft.process(&mut input, &mut output);
+
+    // パワースペクトルを計算
+    let power_spectrum: Vec<f32> = output.iter().map(|c| c.norm_sqr()).collect();
+
+    // パワースペクトルをデシベルに変換
+    let power_spectrum_db: Vec<f32> = power_spectrum.iter()
+        .map(|&power| 10.0 * f32::log10(power))
+        .collect();
+
+    return power_spectrum_db
 }
