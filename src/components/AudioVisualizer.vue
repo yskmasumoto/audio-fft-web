@@ -20,15 +20,28 @@ onMounted(async () => {
   isWasmLoaded = true;
 });
 
+const handleFileUpload = async (event) => {
+	const target = event.target;
+	const file = target.files?.[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = (e) => {
+		audioElement.value.src = e.target.result;
+	};
+	await reader.readAsDataURL(file);
+  startAudioContext()
+};
+
 function startAudioContext() {
+  console.log(audioElement)
   if (!audioContext) {
+    audioElement.value = document.getElementById("audio")
     audioContext = new AudioContext();
     analyserNode = audioContext.createAnalyser();
-
     const source = audioContext.createMediaElementSource(audioElement.value);
     source.connect(analyserNode);
     analyserNode.connect(audioContext.destination);
-
+    analyserNode.fftSize = 4096
     dataArray = new Float32Array(analyserNode.fftSize);
   }
 
@@ -51,14 +64,14 @@ function updateSpectrum() {
   const barWidth = spectrumCanvas.value.width / powerSpectrumDb.length;
   let barHeight;
   let x = 0;
-
+  console.log(barWidth)
   for (let i = 0; i < powerSpectrumDb.length; i++) {
-    barHeight = powerSpectrumDb[i] + 100;
+    barHeight = powerSpectrumDb[i];
 
-    canvasContext.fillStyle = 'rgb(' + (barHeight + 50) + ',50,50)';
+    canvasContext.fillStyle = 'rgb(' + (barHeight + 50) + ',0,0)';
     canvasContext.fillRect(x, spectrumCanvas.value.height - barHeight / 2, barWidth, barHeight / 2);
 
-    x += barWidth + 1;
+    x += barWidth;
   }
 
   requestAnimationFrame(updateSpectrum);
@@ -67,12 +80,19 @@ function updateSpectrum() {
 
 <template>
   <div>
-    <audio ref="audioElement" :src="audioSrc" controls></audio>
+    <input type="file" id="upload" @change="handleFileUpload" />
+    <audio id="audio" controls></audio>
     <canvas 
       ref="spectrumCanvas"
       width="800"
       height="600"
     ></canvas>
-    <button @click="startAudioContext">Start Visualization</button>
-  </div>
+    <!-- <button @click="startAudioContext">Start Visualization</button> -->
+  </div>  
 </template>
+
+<style scoped>
+canvas {
+  border: 2px solid black;
+}
+</style>
