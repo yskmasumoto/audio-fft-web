@@ -57,19 +57,25 @@ function updateSpectrum() {
   analyserNode.getFloatTimeDomainData(dataArray);
 
   // WebAssemblyを使ってFFTを計算
-  const powerSpectrumDb = calculate_fft_v2(dataArray);
+  let powerSpectrumDb = calculate_fft_v2(dataArray);
+  powerSpectrumDb = powerSpectrumDb.slice(0, powerSpectrumDb.length / 2)
 
   canvasContext.clearRect(0, 0, spectrumCanvas.value.width, spectrumCanvas.value.height);
 
   const barWidth = spectrumCanvas.value.width / powerSpectrumDb.length;
   let barHeight;
   let x = 0;
-  console.log(barWidth)
-  for (let i = 0; i < powerSpectrumDb.length; i++) {
-    barHeight = powerSpectrumDb[i];
+  let fill_style = 'rgb(20,20,20)'
 
-    canvasContext.fillStyle = 'rgb(' + (barHeight + 50) + ',0,0)';
-    canvasContext.fillRect(x, spectrumCanvas.value.height - barHeight / 2, barWidth, barHeight / 2);
+  for (let i = 0; i < powerSpectrumDb.length; i++) {
+    barHeight = powerSpectrumDb[i] * 4;
+    if (barHeight < 0) {
+      fill_style = 'rgb(0,' + (-barHeight + 50) + ',0)';
+    } else {
+      fill_style = 'rgb(' + (barHeight + 50) + ',0,0)';
+    }
+    canvasContext.fillStyle = fill_style
+    canvasContext.fillRect(x, spectrumCanvas.value.height / 2 - barHeight / 2, barWidth, barHeight / 2);
 
     x += barWidth;
   }
@@ -80,7 +86,9 @@ function updateSpectrum() {
 
 <template>
   <div>
-    <input type="file" id="upload" @change="handleFileUpload" />
+    <div>
+        <input type="file" id="upload" @change="handleFileUpload" />
+    </div>
     <audio id="audio" controls></audio>
     <canvas 
       ref="spectrumCanvas"
@@ -94,5 +102,6 @@ function updateSpectrum() {
 <style scoped>
 canvas {
   border: 2px solid black;
+  background-color: rgb(150, 150, 150);
 }
 </style>
