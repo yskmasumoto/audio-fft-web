@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import init, { calculate_fft_v2 } from '../rust_wasm/pkg/audio_fft.js';
+import FileUploadComponent from './FileUpload.vue'
+import AudioPlayerComponent from './AudioPlayer.vue'
 
 const props = defineProps({
   audioSrc: String
@@ -20,9 +22,7 @@ onMounted(async () => {
   isWasmLoaded = true;
 });
 
-const handleFileUpload = async (event) => {
-	const target = event.target;
-	const file = target.files?.[0];
+const handleFileUpload = async (file) => {
 	if (!file) return;
 	const reader = new FileReader();
 	reader.onload = (e) => {
@@ -85,23 +85,43 @@ function updateSpectrum() {
 </script>
 
 <template>
-  <div>
-    <div>
-        <input type="file" id="upload" @change="handleFileUpload" />
+  <div class="audiovisualizer">
+    <div class="uploader">
+        <FileUploadComponent @file-uploaded="handleFileUpload" />
+        <AudioPlayerComponent />
     </div>
-    <audio id="audio" controls></audio>
-    <canvas 
-      ref="spectrumCanvas"
-      width="800"
-      height="600"
-    ></canvas>
-    <!-- <button @click="startAudioContext">Start Visualization</button> -->
+    <div class="spectrumarea">
+      <canvas 
+        ref="spectrumCanvas"
+        width="800"
+        height="600"
+      ></canvas>
+    </div>
   </div>  
 </template>
 
 <style scoped>
 canvas {
-  border: 2px solid black;
+  border: 5px solid black;
   background-color: rgb(150, 150, 150);
+}
+
+.audiovisualizer {
+  margin: auto;
+  width: 1000px;
+}
+
+.spectrumarea {
+  display: flex;
+  justify-content: center;
+}
+
+.uploader {
+  margin-left: 175px;
+  margin-right: 175px;
+  justify-content: space-around;
+  align-items: center;
+  display: flex;
+  flex: 1 2 auto;
 }
 </style>
