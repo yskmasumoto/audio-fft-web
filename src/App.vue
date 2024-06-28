@@ -3,7 +3,7 @@ import AudioVisualizer from './components/AudioVisualizer.vue';
 </script>
 
 <template>
-    <AudioVisualizer audio-src="/1000Hz_5sec.wav"/>
+    <AudioVisualizer />
 </template>
 
 <style>
