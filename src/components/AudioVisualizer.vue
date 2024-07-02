@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import init, { calculate_fft_v2 } from '../rust_wasm/pkg/audio_fft.js';
 import FileUploadComponent from './FileUpload.vue'
 import AudioPlayerComponent from './AudioPlayer.vue'
+import AudioMeterComponent from './AudioMeter.vue'
 
 const props = defineProps({
   audioSrc: String
@@ -15,6 +16,9 @@ let analyserNode = null;
 let dataArray = null;
 let canvasContext = null;
 let isWasmLoaded = false;
+const maxdb = ref(0);
+const meandb = ref(0);
+const aryMax = function (a, b) {return Math.max(a, b);}
 
 onMounted(async () => {
   canvasContext = spectrumCanvas.value.getContext('2d');
@@ -66,6 +70,7 @@ function updateSpectrum() {
   let barHeight;
   let x = 0;
   let fill_style = 'rgb(20,20,20)'
+  let sum = 0;
 
   for (let i = 0; i < powerSpectrumDb.length; i++) {
     barHeight = powerSpectrumDb[i] * 4;
@@ -74,11 +79,17 @@ function updateSpectrum() {
     } else {
       fill_style = 'rgb(' + (barHeight + 50) + ',0,0)';
     }
+    sum += powerSpectrumDb[i]
     canvasContext.fillStyle = fill_style
     canvasContext.fillRect(x, spectrumCanvas.value.height / 2 - barHeight / 2, barWidth, barHeight / 2);
 
     x += barWidth;
   }
+
+  if (maxdb.value < powerSpectrumDb.reduce(aryMax)){
+    maxdb.value = powerSpectrumDb.reduce(aryMax)
+  }
+  meandb.value = sum / powerSpectrumDb.length
 
   requestAnimationFrame(updateSpectrum);
 }
@@ -97,6 +108,7 @@ function updateSpectrum() {
         height="600"
       ></canvas>
     </div>
+    <AudioMeterComponent :averageLevel="meandb" :peakLevel="maxdb"/>
   </div>  
 </template>
 
