@@ -1,10 +1,12 @@
 <template>
-    <div class="file-upload">
-        <label for="upload" class="file-upload__label">
-            <span class="file-upload__icon">📂</span>
-            <span class="file-upload__text">{{ fileName || 'Choose a file...' }}</span>
-        </label>
-        <input type="file" id="upload" class="file-upload__input" @change="parentUpload" />
+    <div class="wrapper">
+        <div class="file-upload">
+            <label for="upload" class="file-upload__label">
+                <span class="file-upload__icon">📂</span>
+                <span class="file-upload__text">{{ fileName || 'Choose a file...' }}</span>
+            </label>
+            <input type="file" id="upload" class="file-upload__input" @change="parentUpload" />
+        </div>
     </div>
 </template>
 
@@ -22,7 +24,12 @@
 </script>
 
 <style scoped>
+.wrapper {
+    height: 100%;
+}
+
 .file-upload {
+    height: 100%;
     display: inline-block;
     position: relative;
     overflow: hidden;
@@ -32,9 +39,12 @@
 .file-upload__label {
     display: flex;
     align-items: center;
-    padding: 8px 16px;
+    /* padding: 8px 16px; */
+    height: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
     background-color: #646464;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: background-color 0.3s ease;
 }
 

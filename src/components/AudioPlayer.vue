@@ -60,5 +60,18 @@ function formatTime(time) {
 </script>
 
 <style scoped>
-/* ... */
+.audio-player {
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
+  padding-left: 16px;
+  padding-right: 16px;
+  border-radius: 8px;
+  background-color: #646464;
+  height: 100%;
+}
 </style>

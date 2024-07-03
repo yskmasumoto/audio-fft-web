@@ -131,6 +131,7 @@ canvas {
 .uploader {
   margin-left: 175px;
   margin-right: 175px;
+  height: 50px;
   justify-content: space-around;
   align-items: center;
   display: flex;

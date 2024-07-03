@@ -1,21 +1,21 @@
 <template>
-    <div class="audio-meter">
-        <div class="meter vu-meter">
-            <div class="meter-scale">
-                <div v-for="value in scaleValues" :key="value" class="scale-mark">
-                    {{ value }}
-                </div>
-            </div>
-            <div class="needle" :style="{ transform: `rotate(${vuRotation}deg)` }"></div>
+  <div class="audio-meter">
+    <div class="meter vu-meter">
+      <div class="meter-scale">
+        <div v-for="value in scaleValues" :key="value" class="scale-mark">
+            {{ value }}
         </div>
-        <div class="meter ppm-meter">
-            <div class="bar" :style="{ width: `${ppmWidth}%` }"></div>
-        </div>
-        <div class="controls">
-            <div>TRIM LEFT</div>
-            <div>TRIM RIGHT</div>
-        </div>
+      </div>
+      <div class="needle" :style="{ transform: `rotate(${vuRotation}deg)` }"></div>
     </div>
+    <div class="meter ppm-meter">
+      <div class="bar" :style="{ width: `${ppmWidth}%` }"></div>
+    </div>
+    <div class="controls">
+      <div>TRIM LEFT</div>
+      <div>TRIM RIGHT</div>
+    </div>
+  </div>
 </template>
 
 <script setup>
