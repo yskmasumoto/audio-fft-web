@@ -19,6 +19,12 @@ let isWasmLoaded = false;
 const maxdb = ref(0);
 const meandb = ref(0);
 const aryMax = function (a, b) {return Math.max(a, b);}
+const playflag = ref(false)
+
+const update_isPlaying = (isPlaying) => {
+  console.log('Received isPlaying:', isPlaying);
+  playflag.value = isPlaying
+}
 
 onMounted(async () => {
   canvasContext = spectrumCanvas.value.getContext('2d');
@@ -99,7 +105,7 @@ function updateSpectrum() {
   <div class="audiovisualizer">
     <div class="uploader">
         <FileUploadComponent @file-uploaded="handleFileUpload" />
-        <AudioPlayerComponent />
+        <AudioPlayerComponent @change-play-pause="update_isPlaying"/>
     </div>
     <div class="spectrumarea">
       <canvas 
@@ -108,7 +114,7 @@ function updateSpectrum() {
         height="600"
       ></canvas>
     </div>
-    <AudioMeterComponent :averageLevel="meandb" :peakLevel="maxdb"/>
+    <AudioMeterComponent :peakLevel="maxdb" :is_playing="playflag" />
   </div>  
 </template>
 
