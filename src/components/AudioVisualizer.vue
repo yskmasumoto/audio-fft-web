@@ -1,110 +1,146 @@
-<script setup lang="ts">
-import { ref, onMounted } from "vue";
-import init, { calculate_fft } from "../rust_wasm/pkg/audio_fft.js";
+<script setup>
+import { ref, onMounted } from 'vue';
+import init, { calculate_fft_v2 } from '../rust_wasm/pkg/audio_fft.js';
+import FileUploadComponent from './FileUpload.vue'
+import AudioPlayerComponent from './AudioPlayer.vue'
+import AudioMeterComponent from './AudioMeter.vue'
 
-const audioContext = ref<AudioContext | null>(null);
-const analyser = ref<AnalyserNode | null>(null);
-const dataArray = ref<Float32Array | null>(null);
-const canvas = ref<HTMLCanvasElement | null>(null);
-const ctx = ref<CanvasRenderingContext2D | null>(null);
-const audioElement = ref<HTMLAudioElement | null>(null);
-const sourceNode = ref<MediaElementAudioSourceNode | null>(null);
-const scaleFactor = 0.2;
-
-onMounted(async () => {
-	await init();
-	audioContext.value = new (window.AudioContext || window.webkitAudioContext)();
-	analyser.value = audioContext.value.createAnalyser();
-	analyser.value.fftSize = 2048;
-	const bufferLength = analyser.value.frequencyBinCount;
-	dataArray.value = new Float32Array(bufferLength);
-
-	canvas.value = document.getElementById("canvas") as HTMLCanvasElement;
-	ctx.value = canvas.value.getContext("2d") as CanvasRenderingContext2D;
-
-	audioElement.value = document.getElementById("audio") as HTMLAudioElement;
-	sourceNode.value = audioContext.value.createMediaElementSource(
-		audioElement.value,
-	);
-	sourceNode.value.connect(analyser.value);
-	analyser.value.connect(audioContext.value.destination);
-
-	audioElement.value.addEventListener("canplay", () => {
-		audioElement.value?.play();
-	});
-
-	draw();
+const props = defineProps({
+  audioSrc: String
 });
 
-const handleFileUpload = async (event: Event) => {
-	if (audioContext.value?.state === "suspended") {
-		await audioContext.value.resume();
-	}
+const audioElement = ref(null);
+const spectrumCanvas = ref(null);
+let audioContext = null;
+let analyserNode = null;
+let dataArray = null;
+let canvasContext = null;
+let isWasmLoaded = false;
+const maxdb = ref(0);
+const meandb = ref(0);
+const aryMax = function (a, b) {return Math.max(a, b);}
+const playflag = ref(false)
 
-	const target = event.target as HTMLInputElement;
-	const file = target.files?.[0];
+const update_isPlaying = (isPlaying) => {
+  console.log('Received isPlaying:', isPlaying);
+  playflag.value = isPlaying
+}
+
+onMounted(async () => {
+  canvasContext = spectrumCanvas.value.getContext('2d');
+  await init();
+  isWasmLoaded = true;
+});
+
+const handleFileUpload = async (file) => {
 	if (!file) return;
 	const reader = new FileReader();
-
 	reader.onload = (e) => {
-		audioElement.value!.src = e.target!.result as string;
+		audioElement.value.src = e.target.result;
 	};
-
-	reader.readAsDataURL(file);
+	await reader.readAsDataURL(file);
+  startAudioContext()
 };
 
-const draw = () => {
-	requestAnimationFrame(draw);
+function startAudioContext() {
+  console.log(audioElement)
+  if (!audioContext) {
+    audioElement.value = document.getElementById("audio")
+    audioContext = new AudioContext();
+    analyserNode = audioContext.createAnalyser();
+    const source = audioContext.createMediaElementSource(audioElement.value);
+    source.connect(analyserNode);
+    analyserNode.connect(audioContext.destination);
+    analyserNode.fftSize = 4096
+    dataArray = new Float32Array(analyserNode.fftSize);
+  }
 
-	if (!analyser.value || !dataArray.value || !ctx.value || !canvas.value)
-		return;
+  requestAnimationFrame(updateSpectrum);
+}
 
-	analyser.value.getFloatFrequencyData(dataArray.value);
+function updateSpectrum() {
+  if (!isWasmLoaded) {
+    requestAnimationFrame(updateSpectrum);
+    return;
+  }
 
-	const fftResult = calculate_fft(dataArray.value).map((v) => (v + 140) / 140);
+  analyserNode.getFloatTimeDomainData(dataArray);
 
-	ctx.value.fillStyle = "rgb(0, 0, 0)";
-	ctx.value.fillRect(0, 0, canvas.value.width, canvas.value.height);
+  // WebAssemblyを使ってFFTを計算
+  let powerSpectrumDb = calculate_fft_v2(dataArray);
+  powerSpectrumDb = powerSpectrumDb.slice(0, powerSpectrumDb.length / 2)
 
-	const barWidth = (canvas.value.width / dataArray.value.length) * 2.5;
-	let barHeight;
-	let x = 0;
+  canvasContext.clearRect(0, 0, spectrumCanvas.value.width, spectrumCanvas.value.height);
 
-	for (let i = 0; i < dataArray.value.length; i++) {
-		barHeight = fftResult[i] * canvas.value.height * scaleFactor;
+  const barWidth = spectrumCanvas.value.width / powerSpectrumDb.length;
+  let barHeight;
+  let x = 0;
+  let fill_style = 'rgb(20,20,20)'
+  let sum = 0;
 
-		const r = clamp(barHeight, 0, 255);
-		const g = 50;
-		const b = 50;
-		ctx.value.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
+  for (let i = 0; i < powerSpectrumDb.length; i++) {
+    barHeight = powerSpectrumDb[i] * 4;
+    if (barHeight < 0) {
+      fill_style = 'rgb(0,' + (-barHeight + 50) + ',0)';
+    } else {
+      fill_style = 'rgb(' + (barHeight + 50) + ',0,0)';
+    }
+    sum += powerSpectrumDb[i]
+    canvasContext.fillStyle = fill_style
+    canvasContext.fillRect(x, spectrumCanvas.value.height / 2 - barHeight / 2, barWidth, barHeight / 2);
 
-		ctx.value.fillRect(
-			x,
-			canvas.value.height - barHeight / 2,
-			barWidth,
-			barHeight / 2,
-		);
+    x += barWidth;
+  }
 
-		x += barWidth + 1;
-	}
-};
+  if (maxdb.value < powerSpectrumDb.reduce(aryMax)){
+    maxdb.value = powerSpectrumDb.reduce(aryMax)
+  }
+  meandb.value = sum / powerSpectrumDb.length
 
-const clamp = (value: number, min: number, max: number) => {
-	return Math.min(Math.max(value, min), max);
-};
+  requestAnimationFrame(updateSpectrum);
+}
 </script>
 
 <template>
-    <div>
-      <canvas id="canvas" width="800" height="400"></canvas>
-      <input type="file" id="upload" @change="handleFileUpload" />
-      <audio id="audio" controls></audio>
+  <div class="audiovisualizer">
+    <div class="uploader">
+        <FileUploadComponent @file-uploaded="handleFileUpload" />
+        <AudioPlayerComponent @change-play-pause="update_isPlaying"/>
     </div>
+    <div class="spectrumarea">
+      <canvas 
+        ref="spectrumCanvas"
+        width="800"
+        height="600"
+      ></canvas>
+    </div>
+    <AudioMeterComponent :peakLevel="maxdb" :is_playing="playflag" />
+  </div>  
 </template>
-  
+
 <style scoped>
 canvas {
-    border: 1px solid black;
+  border: 5px solid black;
+  background-color: rgb(150, 150, 150);
+}
+
+.audiovisualizer {
+  margin: auto;
+  width: 1000px;
+}
+
+.spectrumarea {
+  display: flex;
+  justify-content: center;
+}
+
+.uploader {
+  margin-left: 175px;
+  margin-right: 175px;
+  height: 50px;
+  justify-content: space-around;
+  align-items: center;
+  display: flex;
+  flex: 1 2 auto;
 }
 </style>
-  
